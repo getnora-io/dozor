@@ -2,6 +2,7 @@
 
 [![ci](https://github.com/getnora-io/dozor/actions/workflows/ci.yml/badge.svg)](https://github.com/getnora-io/dozor/actions/workflows/ci.yml)
 [![nora-parity](https://github.com/getnora-io/dozor/actions/workflows/nora-parity.yml/badge.svg)](https://github.com/getnora-io/dozor/actions/workflows/nora-parity.yml)
+[![crates.io](https://img.shields.io/crates/v/dozor.svg)](https://crates.io/crates/dozor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Dozor** /ˈdoʊ.zɔːr/ — Slavic: *the watch, the patrol sent ahead*.
@@ -69,6 +70,15 @@ On the live npm feed, 2026-09-05 (32-core box, single-threaded run):
 
 The feed is never unpacked to disk: entries are decompressed one at a time,
 projected to the ~4% that decides a verdict, and dropped.
+
+## Install
+
+```bash
+cargo install dozor
+```
+
+Or take a static binary from the [releases page](https://github.com/getnora-io/dozor/releases)
+— `x86_64` and `aarch64`, musl, no runtime dependencies.
 
 ## Quick start
 
@@ -153,6 +163,15 @@ Next: PyPI (PEP 440), then Maven, Go and RPM/deb version semantics; an OpenVEX
 output so the same policy that blocks in NORA also silences Trivy and Grype on
 the same accepted exceptions; and `dozor sync` for content-addressed snapshots.
 None of that exists yet — this section is the whole roadmap.
+
+## Crates
+
+| crate | |
+|---|---|
+| [`dozor`](https://crates.io/crates/dozor) | the CLI |
+| [`dozor-core`](https://crates.io/crates/dozor-core) | inventory, policy, rule collapse, canonical output |
+| [`dozor-osv`](https://crates.io/crates/dozor-osv) | streaming OSV reader, arena + CSR index |
+| [`dozor-vers`](https://crates.io/crates/dozor-vers) | version-range semantics per ecosystem, pure, no I/O |
 
 ## License
 
