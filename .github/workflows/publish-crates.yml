@@ -47,7 +47,12 @@ jobs:
               dozor)      echo "dozor-vers dozor-osv dozor-core" ;;
             esac
           }
-          published() { cargo info "$1@$VERSION" >/dev/null 2>&1; }
+          # Ask crates.io, not cargo: `cargo info` inside a workspace resolves the
+          # local package and answers "yes" for a crate that was never published.
+          published() {
+            curl -sf -o /dev/null -H "User-Agent: dozor-publish" \
+              "https://crates.io/api/v1/crates/$1/$VERSION"
+          }
 
           VERSION=$(cargo metadata --no-deps --format-version 1 \
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')
