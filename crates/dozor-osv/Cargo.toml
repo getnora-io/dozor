@@ -3,6 +3,12 @@ name = "dozor-osv"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+keywords = ["osv", "vulnerabilities", "advisories", "streaming"]
+categories = ["parser-implementations"]
 description = "Streaming reader for OSV.dev bulk exports. Builds a compact in-memory index."
 
 [dependencies]

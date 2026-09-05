@@ -3,6 +3,12 @@ name = "dozor-vers"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+keywords = ["osv", "semver", "versions", "supply-chain"]
+categories = ["parsing"]
 description = "Version-range matching for package ecosystems. Pure, no I/O."
 
 [dependencies]

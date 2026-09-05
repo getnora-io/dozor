@@ -3,6 +3,13 @@ name = "dozor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+keywords = ["osv", "registry", "blocklist", "supply-chain", "nora"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
 description = "Dozor — the watch at the mouth of the burrow. Compiles OSV + registry inventory into a NORA blocklist."
 
 [[bin]]

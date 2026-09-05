@@ -12,6 +12,9 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/getnora-io/dozor"
+homepage = "https://github.com/getnora-io/dozor"
+authors = ["Pavel Volkov <devitway@gmail.com>"]
+rust-version = "1.88"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
