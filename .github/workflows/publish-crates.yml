@@ -1,0 +1,61 @@
+name: publish-crates
+
+# Publishes the workspace to crates.io in dependency order.
+#
+# Needs a CARGO_REGISTRY_TOKEN repository secret. Without it the job still runs
+# and does a full dry run, so a missing token is a visible skip rather than a
+# silent one.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Package and verify without uploading"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: publish in dependency order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo "::warning::CARGO_REGISTRY_TOKEN is not set — dry run only"
+            DRY=true
+          fi
+
+          for crate in dozor-vers dozor-osv dozor-core dozor; do
+            echo "::group::$crate"
+            if [ "$DRY" = "true" ]; then
+              ( cd "crates/$crate" && cargo publish --dry-run )
+            else
+              # Already-published versions are not an error: this workflow is
+              # re-runnable, and a partially published workspace must be able to
+              # finish rather than start over.
+              if cargo info "$crate@0.1.0" >/dev/null 2>&1; then
+                echo "$crate 0.1.0 is already on crates.io — skipping"
+              else
+                ( cd "crates/$crate" && cargo publish )
+                # The index needs a moment before the next crate can resolve it.
+                for i in $(seq 30); do
+                  cargo info "$crate" >/dev/null 2>&1 && break
+                  sleep 10
+                done
+              fi
+            fi
+            echo "::endgroup::"
+          done
