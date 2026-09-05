@@ -43,7 +43,10 @@ impl Arena {
         }
         let off = self.buf.len() as u32;
         self.buf.push_str(s);
-        Str { off, len: s.len() as u32 }
+        Str {
+            off,
+            len: s.len() as u32,
+        }
     }
 
     pub fn get(&self, r: Str) -> &str {
@@ -230,7 +233,10 @@ impl Index {
 
     /// Advisories touching `name`, or an empty slice.
     pub fn lookup(&self, name: &str) -> &[Entry] {
-        match self.names.binary_search_by(|probe| self.arena.get(*probe).cmp(name)) {
+        match self
+            .names
+            .binary_search_by(|probe| self.arena.get(*probe).cmp(name))
+        {
             Ok(i) => &self.entries[self.starts[i] as usize..self.starts[i + 1] as usize],
             Err(_) => &[],
         }
@@ -241,7 +247,9 @@ impl Index {
         self.names.iter().enumerate().flat_map(move |(i, name)| {
             let s = self.starts[i] as usize;
             let e = self.starts[i + 1] as usize;
-            self.entries[s..e].iter().map(move |entry| (self.arena.get(*name), entry))
+            self.entries[s..e]
+                .iter()
+                .map(move |entry| (self.arena.get(*name), entry))
         })
     }
 
@@ -258,14 +266,14 @@ impl Index {
     pub fn versions_of(&self, e: &Entry) -> impl Iterator<Item = &str> {
         let s = e.versions_start as usize;
         let n = e.versions_len as usize;
-        self.versions[s..s + n].iter().map(move |v| self.arena.get(*v))
+        self.versions[s..s + n]
+            .iter()
+            .map(move |v| self.arena.get(*v))
     }
 
     /// True when every bound says "the whole package, forever".
     pub fn is_whole_package(&self, e: &Entry) -> bool {
-        e.versions_len == 0
-            && e.bounds_len > 0
-            && self.bounds_of(e).all(|b| b.is_whole_package())
+        e.versions_len == 0 && e.bounds_len > 0 && self.bounds_of(e).all(|b| b.is_whole_package())
     }
 
     pub fn id_str(&self, e: &Entry) -> &str {
@@ -436,7 +444,15 @@ fn fold(raw: RawAdvisory, want: Ecosystem, index: &mut Index) {
         let name_ref = index.arena.push(&name);
         index.staging.push((
             name_ref,
-            Entry { id, packed, bounds_start, bounds_len, versions_start, versions_len, fixed_in },
+            Entry {
+                id,
+                packed,
+                bounds_start,
+                bounds_len,
+                versions_start,
+                versions_len,
+                fixed_in,
+            },
         ));
     }
 }
@@ -522,7 +538,12 @@ mod tests {
     #[test]
     fn lookup_finds_the_right_bucket() {
         let mut idx = Index::default();
-        for (id, name) in [("MAL-1", "aaa"), ("MAL-2", "zzz"), ("MAL-3", "mmm"), ("MAL-4", "aaa")] {
+        for (id, name) in [
+            ("MAL-1", "aaa"),
+            ("MAL-2", "zzz"),
+            ("MAL-3", "mmm"),
+            ("MAL-4", "aaa"),
+        ] {
             let raw: RawAdvisory = serde_json::from_str(&format!(
                 r#"{{"id":"{id}","affected":[{{"package":{{"name":"{name}","ecosystem":"npm"}},
                     "ranges":[{{"events":[{{"introduced":"0"}}]}}]}}]}}"#
@@ -545,7 +566,10 @@ mod tests {
             Ecosystem::Npm,
         );
         let e = &idx.lookup("pkg")[0];
-        assert_eq!(idx.versions_of(e).collect::<Vec<_>>(), vec!["1.0.0", "1.0.1"]);
+        assert_eq!(
+            idx.versions_of(e).collect::<Vec<_>>(),
+            vec!["1.0.0", "1.0.1"]
+        );
         assert!(!idx.is_whole_package(e));
     }
 }

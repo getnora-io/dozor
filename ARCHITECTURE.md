@@ -98,15 +98,25 @@ whether or not any version was ever cached.
 |---|---|
 | `dozor-vers` | version-range semantics per ecosystem · pure · property-tested |
 | `dozor-osv` | streaming OSV reader · arena + CSR index · `peak_rss_kb()` |
-| `dozor-core` | policy, inventory, rule collapse, canonical serialisation, derivation |
-| `dozor-cli` | `build` · `verify` · `explain` · `stats` |
+| `dozor-core` | inventory sources, policy, rule collapse, canonical serialisation, derivation |
+| `dozor` | the CLI: `inventory` · `build` · `verify` · `explain` · `stats` |
+
+## The inventory is read from files too
+
+`dozor inventory` takes it from a NORA data directory — the layout is
+`storage/npm/<package>/tarballs/<base>-<version>.tgz` for proxied packages and
+`storage/npm/<package>/versions/<version>.json` for hosted ones, with scoped
+packages nesting — or from an npm lockfile, for gating a project rather than a
+cache. No API call, nothing to authenticate, works on a cold copy of the data
+directory. Output is sorted and deduplicated, so the inventory file is itself
+deterministic and diffs cleanly.
 
 ## Known limits (accepted, not "by design")
 
-- **Scan-on-publish** — a synchronous verdict on push would need a resident
+- **Scan-on-publish** (contract D-7) — a synchronous verdict on push would need a resident
   service with an in-memory index. That is a different product; out of scope, not
   denied. Workaround: post-hoc build plus version withdrawal.
-- **Peak RSS 173 MB vs 24.9 MB retained** — the gap is transient build allocation
+- **Peak RSS 173 MB vs 24.9 MB retained** (contract D-6, OPEN) — the gap is transient build allocation
   and allocator behaviour, not data. Reserving capacity up front and streaming the
   output writer are the open items.
 - **Proactive mode costs NORA latency** — 197,314 rules make NORA's linear

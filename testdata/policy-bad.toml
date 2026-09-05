@@ -1,0 +1,4 @@
+version = 1
+
+[defaults]
+severity_threshold = "kinda-bad"

@@ -6,7 +6,7 @@ license.workspace = true
 description = "Streaming reader for OSV.dev bulk exports. Builds a compact in-memory index."
 
 [dependencies]
-dozor-vers = { path = "../dozor-vers" }
+dozor-vers = { path = "../dozor-vers", version = "0.1.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 zip = { workspace = true }

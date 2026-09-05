@@ -1,0 +1,5 @@
+version = 1
+
+[defaults]
+severity_threshold = "high"
+malicious = "block"

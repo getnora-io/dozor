@@ -6,8 +6,8 @@ license.workspace = true
 description = "Policy, inventory and the deterministic derivation of a NORA blocklist."
 
 [dependencies]
-dozor-vers = { path = "../dozor-vers" }
-dozor-osv = { path = "../dozor-osv" }
+dozor-vers = { path = "../dozor-vers", version = "0.1.0" }
+dozor-osv = { path = "../dozor-osv", version = "0.1.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

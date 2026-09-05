@@ -1,5 +1,5 @@
 [package]
-name = "dozor-cli"
+name = "dozor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,8 +10,8 @@ name = "dozor"
 path = "src/main.rs"
 
 [dependencies]
-dozor-core = { path = "../dozor-core" }
-dozor-osv = { path = "../dozor-osv" }
-dozor-vers = { path = "../dozor-vers" }
+dozor-core = { path = "../dozor-core", version = "0.1.0" }
+dozor-osv = { path = "../dozor-osv", version = "0.1.0" }
+dozor-vers = { path = "../dozor-vers", version = "0.1.0" }
 clap = { workspace = true }
 serde_json = { workspace = true }

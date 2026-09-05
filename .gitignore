@@ -1,4 +1,5 @@
 /target
 /snapshots
-*.zip
-blocklist.json
+/blocklist.json
+/inventory.jsonl
+bl-*.json

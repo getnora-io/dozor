@@ -1,0 +1,21 @@
+name: Ecosystem support
+description: Version-range matching for an ecosystem Dozor does not decide yet
+labels: [enhancement, ecosystem]
+body:
+  - type: input
+    id: ecosystem
+    attributes:
+      label: Ecosystem
+      description: As OSV names it — PyPI, Maven, Go, RubyGems, NuGet, Debian, Alpine...
+    validations: { required: true }
+  - type: textarea
+    id: semantics
+    attributes:
+      label: Version ordering rules and their edge cases
+      description: Pre-releases, epochs, local versions, distro EVR — whatever makes this ecosystem not-semver.
+    validations: { required: true }
+  - type: input
+    id: reference
+    attributes:
+      label: A reference implementation to compare against
+      description: Useful for a differential test.

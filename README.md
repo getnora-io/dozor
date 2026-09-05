@@ -1,5 +1,9 @@
 # Dozor
 
+[![ci](https://github.com/getnora-io/dozor/actions/workflows/ci.yml/badge.svg)](https://github.com/getnora-io/dozor/actions/workflows/ci.yml)
+[![nora-parity](https://github.com/getnora-io/dozor/actions/workflows/nora-parity.yml/badge.svg)](https://github.com/getnora-io/dozor/actions/workflows/nora-parity.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Dozor** /ˈdoʊ.zɔːr/ — Slavic: *the watch, the patrol sent ahead*.
 
 The watch that walks ahead of your registry. Dozor compiles the OSV vulnerability
@@ -9,9 +13,9 @@ enforces at the door.
 **Dozor scouts. NORA holds the door.**
 
 ```
-osv.dev snapshot  ─┐
+osv.dev snapshot   ─┐
 registry inventory ─┼─►  dozor build  ─►  blocklist.json  ─►  git PR  ─►  NORA
-policy.toml       ─┘                      openvex.json    ─►  Trivy / Grype
+policy.toml        ─┘
 ```
 
 Dozor is not a daemon, not a service, not a scanner and not a database. It is a
@@ -72,7 +76,12 @@ projected to the ~4% that decides a verdict, and dropped.
 # 1. snapshot the feed (or copy the zip in, for air-gapped sites)
 curl -o snapshots/npm.zip https://osv-vulnerabilities.storage.googleapis.com/npm/all.zip
 
-# 2. compile a blocklist: everything malicious, plus CVEs affecting what you cache
+# 2. take an inventory of what your registry actually holds
+dozor inventory --nora-data /var/lib/nora -o inventory.jsonl
+#   ...or gate a project instead of a cache:
+# dozor inventory --lockfile package-lock.json -o inventory.jsonl
+
+# 3. compile a blocklist: everything malicious, plus CVEs affecting what you cache
 dozor build \
   --feed-npm snapshots/npm.zip \
   --inventory inventory.jsonl \
@@ -80,17 +89,31 @@ dozor build \
   --proactive \
   -o blocklist.json
 
-# 3. hand it to NORA — no NORA changes required, any released version
+# 4. hand it to NORA — no NORA changes required, any released version
 NORA_CURATION_MODE=enforce \
 NORA_CURATION_BLOCKLIST_PATH=/etc/nora/blocklist.json \
 nora serve
 ```
 
-The inventory is one JSON object per line — from a NORA storage scan, its
-read-only API, or your own lockfiles:
+The inventory is one JSON object per line, sorted and deduplicated so it diffs
+cleanly in git:
 
 ```json
 {"registry":"npm","name":"lodash","version":"4.17.20"}
+```
+
+`dozor inventory` reads it from a NORA data directory (both proxied tarballs and
+hosted versions, scoped packages included) or from an npm lockfile. Anything that
+can emit those lines works — it is a text format on purpose.
+
+## Commands
+
+```
+dozor inventory  --nora-data DIR | --lockfile FILE   what the registry holds
+dozor build      feed x inventory x policy -> blocklist.json
+dozor verify     re-derive the digest from the file itself
+dozor explain    what the feed says about one package version
+dozor stats      index size and peak RSS, measured
 ```
 
 ## Policy
@@ -122,9 +145,14 @@ expires = "2026-12-31"        # required. expired exception = exit 4, not silent
 
 ## Status
 
-v0.1 — npm only. PyPI (PEP 440), Maven, Go, RPM/deb version semantics and the
-OpenVEX output land next. The matcher reports `Unknown` for everything it cannot
-decide yet, and those show up in the output rather than being assumed safe.
+v0.1 — **npm only**. The matcher answers `Unknown` for every other ecosystem, and
+`Unknown` never becomes "safe": those versions are counted and sampled in
+`x-dozor-unmatched` in the output.
+
+Next: PyPI (PEP 440), then Maven, Go and RPM/deb version semantics; an OpenVEX
+output so the same policy that blocks in NORA also silences Trivy and Grype on
+the same accepted exceptions; and `dozor sync` for content-addressed snapshots.
+None of that exists yet — this section is the whole roadmap.
 
 ## License
 

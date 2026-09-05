@@ -4,7 +4,7 @@ members = [
     "crates/dozor-vers",
     "crates/dozor-osv",
     "crates/dozor-core",
-    "crates/dozor-cli",
+    "crates/dozor",
 ]
 
 [workspace.package]

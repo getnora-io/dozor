@@ -118,49 +118,78 @@ mod tests {
     use super::*;
 
     fn b<'a>(introduced: &'a str, fixed: Option<&'a str>) -> Bound<'a> {
-        Bound { introduced: Some(introduced), fixed, last_affected: None }
+        Bound {
+            introduced: Some(introduced),
+            fixed,
+            last_affected: None,
+        }
     }
 
     #[test]
     fn npm_inside_range_is_affected() {
-        assert_eq!(matches(Ecosystem::Npm, "4.17.20", &b("0", Some("4.17.21"))), Match::Affected);
+        assert_eq!(
+            matches(Ecosystem::Npm, "4.17.20", &b("0", Some("4.17.21"))),
+            Match::Affected
+        );
     }
 
     #[test]
     fn npm_at_fix_is_not_affected() {
-        assert_eq!(matches(Ecosystem::Npm, "4.17.21", &b("0", Some("4.17.21"))), Match::NotAffected);
+        assert_eq!(
+            matches(Ecosystem::Npm, "4.17.21", &b("0", Some("4.17.21"))),
+            Match::NotAffected
+        );
     }
 
     #[test]
     fn npm_before_introduced_is_not_affected() {
-        assert_eq!(matches(Ecosystem::Npm, "1.0.0", &b("2.0.0", Some("3.0.0"))), Match::NotAffected);
+        assert_eq!(
+            matches(Ecosystem::Npm, "1.0.0", &b("2.0.0", Some("3.0.0"))),
+            Match::NotAffected
+        );
     }
 
     #[test]
     fn npm_open_ended_range_is_affected() {
-        assert_eq!(matches(Ecosystem::Npm, "9.9.9", &b("0", None)), Match::Affected);
+        assert_eq!(
+            matches(Ecosystem::Npm, "9.9.9", &b("0", None)),
+            Match::Affected
+        );
     }
 
     #[test]
     fn npm_last_affected_is_inclusive() {
-        let bound = Bound { introduced: Some("0"), fixed: None, last_affected: Some("1.2.3") };
+        let bound = Bound {
+            introduced: Some("0"),
+            fixed: None,
+            last_affected: Some("1.2.3"),
+        };
         assert_eq!(matches(Ecosystem::Npm, "1.2.3", &bound), Match::Affected);
         assert_eq!(matches(Ecosystem::Npm, "1.2.4", &bound), Match::NotAffected);
     }
 
     #[test]
     fn prerelease_orders_below_release() {
-        assert_eq!(matches(Ecosystem::Npm, "4.17.21-beta.1", &b("0", Some("4.17.21"))), Match::Affected);
+        assert_eq!(
+            matches(Ecosystem::Npm, "4.17.21-beta.1", &b("0", Some("4.17.21"))),
+            Match::Affected
+        );
     }
 
     #[test]
     fn unparsable_version_is_unknown_not_safe() {
-        assert_eq!(matches(Ecosystem::Npm, "not-a-version", &b("0", Some("1.0.0"))), Match::Unknown);
+        assert_eq!(
+            matches(Ecosystem::Npm, "not-a-version", &b("0", Some("1.0.0"))),
+            Match::Unknown
+        );
     }
 
     #[test]
     fn unsupported_ecosystem_is_unknown_not_safe() {
-        assert_eq!(matches(Ecosystem::PyPI, "1.0.0", &b("0", Some("2.0.0"))), Match::Unknown);
+        assert_eq!(
+            matches(Ecosystem::PyPI, "1.0.0", &b("0", Some("2.0.0"))),
+            Match::Unknown
+        );
     }
 
     #[test]

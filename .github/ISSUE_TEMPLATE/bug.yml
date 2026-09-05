@@ -1,0 +1,27 @@
+name: Bug report
+description: Something Dozor did that it should not have
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the exact command and its exit code.
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: dozor version
+      description: "`dozor --version`, or the commit"
+    validations: { required: true }
+  - type: textarea
+    id: derivation
+    attributes:
+      label: The x-dozor-derivation block, if you have an output file
+      description: It pins the feed, inventory and policy digests, which makes the run reproducible on our side.
+      render: json

@@ -1,0 +1,12 @@
+version = 1
+
+[defaults]
+severity_threshold = "high"
+malicious = "block"
+
+[[exception]]
+registry = "npm"
+name = "vuln-pkg"
+version = "1.0.0"
+reason = "deliberately stale, used by the expiry test"
+expires = "2020-01-01"

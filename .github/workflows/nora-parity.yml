@@ -1,0 +1,78 @@
+name: nora-parity
+
+# D-2: the whole product rests on one claim — a released NORA reads what Dozor
+# writes, with no NORA change. That claim is worthless unless a machine checks
+# it on every push, against the published image.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # NORA ships independently; catch a schema drift the day it lands.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+
+      - name: compile a blocklist from the fixture feed
+        run: |
+          ./target/release/dozor build \
+            --feed-npm testdata/mini-npm.zip \
+            --policy testdata/policy.toml \
+            --proactive \
+            --today 2026-09-05 \
+            -o "$PWD/blocklist.json"
+          jq '.rules | length' blocklist.json
+
+      - name: start NORA with it
+        run: |
+          docker run -d --name nora -p 4000:4000 \
+            -v "$PWD/blocklist.json:/etc/nora/blocklist.json:ro" \
+            -e RUST_LOG=info \
+            -e NORA_HOST=0.0.0.0 \
+            -e NORA_AUTH_ENABLED=false \
+            -e NORA_CURATION_MODE=enforce \
+            -e NORA_CURATION_BLOCKLIST_PATH=/etc/nora/blocklist.json \
+            ghcr.io/getnora-io/nora:latest
+          for i in $(seq 30); do
+            curl -fsS -m 2 http://127.0.0.1:4000/health >/dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS -m 5 http://127.0.0.1:4000/health >/dev/null
+
+      - name: NORA accepted the file
+        run: |
+          docker logs nora 2>&1 | tee nora.log
+          grep -q "Blocklist filter loaded" nora.log
+
+      - name: assert-403-with-reason
+        # The contract in one step: a blocked tarball is refused, and the reason
+        # Dozor wrote survives into the body a developer actually reads.
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o body.json -w '%{http_code}' -m 10 \
+            "http://127.0.0.1:4000/npm/evil-pkg/-/evil-pkg-1.0.0.tgz")
+          cat body.json
+          test "$code" = "403"
+          grep -q "MAL-0001" body.json
+          grep -q "osv.dev" body.json
+
+      - name: a package with no advisory is not blocked
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 \
+            "http://127.0.0.1:4000/npm/clean-pkg/-/clean-pkg-1.0.0.tgz")
+          test "$code" != "403"
+
+      - if: always()
+        run: docker rm -f nora >/dev/null 2>&1 || true

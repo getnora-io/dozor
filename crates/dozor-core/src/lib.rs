@@ -6,6 +6,7 @@
 //!          because `curation.rs` does not use `deny_unknown_fields`.
 #![forbid(unsafe_code)]
 
+pub mod inventory;
 pub mod policy;
 
 use dozor_osv::{Index, Kind, Severity};
@@ -105,7 +106,14 @@ pub struct Builder {
 }
 
 impl Builder {
-    fn record(&mut self, registry: &str, name: &str, version: &str, idx: &Index, e: &dozor_osv::Entry) {
+    fn record(
+        &mut self,
+        registry: &str,
+        name: &str,
+        version: &str,
+        idx: &Index,
+        e: &dozor_osv::Entry,
+    ) {
         let key = (registry.to_string(), name.to_string(), version.to_string());
         if version == "*" {
             self.whole.insert((registry.to_string(), name.to_string()));
@@ -196,7 +204,8 @@ impl Builder {
                     Match::Unknown => {
                         self.stats.unknown += 1;
                         if self.unknown_samples.len() < 20 {
-                            self.unknown_samples.push(format!("{}@{}", item.name, item.version));
+                            self.unknown_samples
+                                .push(format!("{}@{}", item.name, item.version));
                         }
                         continue;
                     }
@@ -237,7 +246,11 @@ impl Builder {
                 meta: RuleMeta {
                     osv: hit.ids,
                     severity: hit.severity.as_str().to_string(),
-                    kind: if hit.malicious { "malicious".into() } else { "vulnerability".into() },
+                    kind: if hit.malicious {
+                        "malicious".into()
+                    } else {
+                        "vulnerability".into()
+                    },
                     purl,
                     fixed_in: hit.fixed_in,
                 },
@@ -276,7 +289,9 @@ fn reason_line(hit: &Hit) -> String {
     let ids = hit.ids.join(", ");
     let first = hit.ids.first().map(String::as_str).unwrap_or("");
     if hit.malicious {
-        format!("MALICIOUS package ({ids}) — blocked by dozor · https://osv.dev/vulnerability/{first}")
+        format!(
+            "MALICIOUS package ({ids}) — blocked by dozor · https://osv.dev/vulnerability/{first}"
+        )
     } else {
         let fix = match &hit.fixed_in {
             Some(f) => format!(" · fix: {f}"),

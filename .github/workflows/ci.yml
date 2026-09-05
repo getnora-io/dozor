@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: format
+        run: cargo fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: test
+        run: cargo test --all --release
+
+      - name: contract gate
+        run: ./scripts/contract-gate.sh
+
+  determinism:
+    # D-1 at the binary level: the same inputs must give the same bytes on a
+    # machine that has never seen this repository before.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+
+      - name: build twice and compare
+        run: |
+          set -euo pipefail
+          for n in a b; do
+            ./target/release/dozor build \
+              --feed-npm testdata/mini-npm.zip \
+              --inventory testdata/inventory.jsonl \
+              --policy testdata/policy.toml \
+              --today 2026-09-05 \
+              -o "bl-$n.json"
+          done
+          cmp bl-a.json bl-b.json
+          ./target/release/dozor verify bl-a.json
+          sha256sum bl-a.json bl-b.json

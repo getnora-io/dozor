@@ -10,7 +10,7 @@ use dozor_osv::{file_digest, index_zip, peak_rss_kb, Index};
 use dozor_vers::Ecosystem;
 use std::collections::BTreeMap;
 use std::io::BufReader;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 /// Exit codes are part of the contract: CI branches on them.
@@ -24,7 +24,11 @@ mod exit {
 }
 
 #[derive(Parser)]
-#[command(name = "dozor", version, about = "Compile OSV + registry inventory into a NORA blocklist")]
+#[command(
+    name = "dozor",
+    version,
+    about = "Compile OSV + registry inventory into a NORA blocklist"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -62,6 +66,18 @@ enum Cmd {
         /// `name@version`
         package: String,
     },
+    /// Produce an inventory from a NORA data directory or an npm lockfile
+    Inventory {
+        /// NORA data directory (or its storage/ or storage/npm/ subdirectory)
+        #[arg(long, conflicts_with = "lockfile")]
+        nora_data: Option<PathBuf>,
+        /// npm lockfile (package-lock.json)
+        #[arg(long)]
+        lockfile: Option<PathBuf>,
+        /// Output path, one JSON object per line
+        #[arg(short, long, default_value = "inventory.jsonl")]
+        out: PathBuf,
+    },
     /// Index the feed and report size only — the memory budget, measured
     Stats {
         #[arg(long)]
@@ -81,16 +97,26 @@ fn main() -> ExitCode {
 
 fn run() -> Result<u8, Box<dyn std::error::Error>> {
     match Cli::parse().cmd {
-        Cmd::Build { feed_npm, inventory, policy, out, proactive, today } => {
-            build(feed_npm, inventory, policy, out, proactive, today)
-        }
+        Cmd::Build {
+            feed_npm,
+            inventory,
+            policy,
+            out,
+            proactive,
+            today,
+        } => build(feed_npm, inventory, policy, out, proactive, today),
         Cmd::Verify { blocklist } => verify(blocklist),
         Cmd::Explain { feed_npm, package } => explain(feed_npm, package),
+        Cmd::Inventory {
+            nora_data,
+            lockfile,
+            out,
+        } => inventory(nora_data, lockfile, out),
         Cmd::Stats { feed_npm } => stats(feed_npm),
     }
 }
 
-fn load_index(feed: &PathBuf) -> Result<(Index, f64), Box<dyn std::error::Error>> {
+fn load_index(feed: &Path) -> Result<(Index, f64), Box<dyn std::error::Error>> {
     let t0 = std::time::Instant::now();
     let mut index = Index::default();
     index_zip(feed, Ecosystem::Npm, &mut index)?;
@@ -137,9 +163,17 @@ fn build(
     let inventory_digest = match &inventory {
         Some(path) => {
             let f = std::fs::File::open(path)?;
-            builder.add_inventory(BufReader::with_capacity(1 << 16, f), &index, Ecosystem::Npm, &pol)?;
+            builder.add_inventory(
+                BufReader::with_capacity(1 << 16, f),
+                &index,
+                Ecosystem::Npm,
+                &pol,
+            )?;
             if builder.stats.inventory_items == 0 && !proactive {
-                eprintln!("dozor: inventory is empty — refusing to overwrite {}", out.display());
+                eprintln!(
+                    "dozor: inventory is empty — refusing to overwrite {}",
+                    out.display()
+                );
                 return Ok(exit::EMPTY_INVENTORY);
             }
             file_digest(path)?
@@ -166,7 +200,11 @@ fn build(
             matcher: format!("dozor-vers {}", env!("CARGO_PKG_VERSION")),
             policy: dozor_core::text_digest(&policy_text),
             inventory: inventory_digest,
-            mode: if proactive { "proactive".into() } else { "inventory".into() },
+            mode: if proactive {
+                "proactive".into()
+            } else {
+                "inventory".into()
+            },
             snapshots,
             output: output_digest,
         },
@@ -193,6 +231,36 @@ fn build(
     Ok(exit::OK)
 }
 
+fn inventory(
+    nora_data: Option<PathBuf>,
+    lockfile: Option<PathBuf>,
+    out: PathBuf,
+) -> Result<u8, Box<dyn std::error::Error>> {
+    let items = match (&nora_data, &lockfile) {
+        (Some(dir), _) => dozor_core::inventory::scan_nora_storage(dir)?,
+        (_, Some(file)) => {
+            dozor_core::inventory::from_npm_lockfile(&std::fs::read_to_string(file)?)?
+        }
+        (None, None) => {
+            eprintln!("dozor: need --nora-data or --lockfile");
+            return Ok(exit::EMPTY_INVENTORY);
+        }
+    };
+    if items.is_empty() {
+        // D-ADR-8 again: an empty scan is a signal, not a result.
+        eprintln!("dozor: found no packages — refusing to write an empty inventory");
+        return Ok(exit::EMPTY_INVENTORY);
+    }
+    let file = std::fs::File::create(&out)?;
+    dozor_core::inventory::write_jsonl(&items, std::io::BufWriter::new(file))?;
+    eprintln!(
+        "dozor: {} package versions -> {}",
+        items.len(),
+        out.display()
+    );
+    Ok(exit::OK)
+}
+
 fn stats(feed_npm: PathBuf) -> Result<u8, Box<dyn std::error::Error>> {
     let (index, t) = load_index(&feed_npm)?;
     let whole = index
@@ -203,9 +271,18 @@ fn stats(feed_npm: PathBuf) -> Result<u8, Box<dyn std::error::Error>> {
     println!("names             : {}", index.names());
     println!("entries           : {}", index.entry_count());
     println!("whole-package MAL : {whole}");
-    println!("arena             : {:.1} MB", index.arena.bytes() as f64 / 1_048_576.0);
-    println!("index footprint   : {:.1} MB", index.footprint() as f64 / 1_048_576.0);
-    println!("peak RSS          : {} MB", peak_rss_kb().unwrap_or(0) / 1024);
+    println!(
+        "arena             : {:.1} MB",
+        index.arena.bytes() as f64 / 1_048_576.0
+    );
+    println!(
+        "index footprint   : {:.1} MB",
+        index.footprint() as f64 / 1_048_576.0
+    );
+    println!(
+        "peak RSS          : {} MB",
+        peak_rss_kb().unwrap_or(0) / 1024
+    );
     println!("index time        : {t:.1} s");
     Ok(exit::OK)
 }
@@ -236,7 +313,10 @@ fn explain(feed_npm: PathBuf, package: String) -> Result<u8, Box<dyn std::error:
         println!("{name}: no advisories in this snapshot");
         return Ok(exit::OK);
     }
-    println!("{name}@{version} — {} advisories touch this package", entries.len());
+    println!(
+        "{name}@{version} — {} advisories touch this package",
+        entries.len()
+    );
     for e in entries {
         let verdict = if index.is_whole_package(e) {
             "WholePackage".to_string()

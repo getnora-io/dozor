@@ -1,0 +1,38 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  binaries:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-latest
+          - target: aarch64-unknown-linux-musl
+            runner: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo install cross --locked
+      - run: cross build --release --target ${{ matrix.target }} --bin dozor
+      - name: package
+        run: |
+          tar czf "dozor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz" \
+            -C "target/${{ matrix.target }}/release" dozor
+          sha256sum "dozor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz" \
+            > "dozor-${{ github.ref_name }}-${{ matrix.target }}.tar.gz.sha256"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dozor-*.tar.gz
+            dozor-*.tar.gz.sha256

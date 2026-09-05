@@ -1,0 +1,9 @@
+{"registry": "npm", "name": "evil-pkg", "version": "0.0.1"}
+{"registry": "npm", "name": "evil-pkg", "version": "9.9.9"}
+{"registry": "npm", "name": "partly-evil", "version": "1.0.1"}
+{"registry": "npm", "name": "partly-evil", "version": "1.0.2"}
+{"registry": "npm", "name": "vuln-pkg", "version": "1.0.0"}
+{"registry": "npm", "name": "vuln-pkg", "version": "2.0.0"}
+{"registry": "npm", "name": "low-pkg", "version": "1.0.0"}
+{"registry": "npm", "name": "weird-pkg", "version": "not-a-semver"}
+{"registry": "npm", "name": "clean-pkg", "version": "1.0.0"}

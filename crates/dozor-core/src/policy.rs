@@ -65,8 +65,14 @@ impl std::fmt::Display for PolicyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PolicyError::Parse(e) => write!(f, "policy parse error: {e}"),
-            PolicyError::UnsupportedVersion(v) => write!(f, "unsupported policy version {v} (expected 1)"),
-            PolicyError::Expired(list) => write!(f, "expired exceptions (renew or drop them): {}", list.join(", ")),
+            PolicyError::UnsupportedVersion(v) => {
+                write!(f, "unsupported policy version {v} (expected 1)")
+            }
+            PolicyError::Expired(list) => write!(
+                f,
+                "expired exceptions (renew or drop them): {}",
+                list.join(", ")
+            ),
             PolicyError::BadThreshold(s) => write!(f, "unknown severity_threshold '{s}'"),
         }
     }
@@ -84,7 +90,12 @@ impl Policy {
 
     /// `None` means "severity gating is off" — malicious reports still apply.
     pub fn threshold(&self) -> Result<Option<Severity>, PolicyError> {
-        match self.defaults.severity_threshold.to_ascii_lowercase().as_str() {
+        match self
+            .defaults
+            .severity_threshold
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "off" => Ok(None),
             "low" => Ok(Some(Severity::Low)),
             "moderate" | "medium" => Ok(Some(Severity::Moderate)),
@@ -104,7 +115,12 @@ impl Policy {
             .exceptions
             .iter()
             .filter(|e| e.expires.as_str() < today)
-            .map(|e| format!("{}/{}@{} (expired {})", e.registry, e.name, e.version, e.expires))
+            .map(|e| {
+                format!(
+                    "{}/{}@{} (expired {})",
+                    e.registry, e.name, e.version, e.expires
+                )
+            })
             .collect();
         if expired.is_empty() {
             Ok(())
