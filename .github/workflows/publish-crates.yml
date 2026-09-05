@@ -38,24 +38,53 @@ jobs:
             DRY=true
           fi
 
+          # dozor-vers <- dozor-osv <- dozor-core <- dozor
+          deps_of() {
+            case "$1" in
+              dozor-vers) echo "" ;;
+              dozor-osv)  echo "dozor-vers" ;;
+              dozor-core) echo "dozor-vers dozor-osv" ;;
+              dozor)      echo "dozor-vers dozor-osv dozor-core" ;;
+            esac
+          }
+          published() { cargo info "$1@$VERSION" >/dev/null 2>&1; }
+
+          VERSION=$(cargo metadata --no-deps --format-version 1 \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')
+          echo "publishing version $VERSION"
+
           for crate in dozor-vers dozor-osv dozor-core dozor; do
             echo "::group::$crate"
+
+            if published "$crate"; then
+              echo "$crate $VERSION is already on crates.io — nothing to do"
+              echo "::endgroup::"; continue
+            fi
+
+            # A crate cannot even be packaged until its path dependencies are
+            # resolvable from the registry, so an unpublished dependency is a
+            # skip with a reason, never a red build.
+            blocked=""
+            for dep in $(deps_of "$crate"); do
+              published "$dep" || blocked="$blocked $dep"
+            done
+            if [ -n "$blocked" ]; then
+              echo "::notice::$crate skipped — waiting on:$blocked"
+              echo "::endgroup::"; continue
+            fi
+
             if [ "$DRY" = "true" ]; then
               ( cd "crates/$crate" && cargo publish --dry-run )
             else
-              # Already-published versions are not an error: this workflow is
-              # re-runnable, and a partially published workspace must be able to
-              # finish rather than start over.
-              if cargo info "$crate@0.1.0" >/dev/null 2>&1; then
-                echo "$crate 0.1.0 is already on crates.io — skipping"
-              else
-                ( cd "crates/$crate" && cargo publish )
-                # The index needs a moment before the next crate can resolve it.
-                for i in $(seq 30); do
-                  cargo info "$crate" >/dev/null 2>&1 && break
-                  sleep 10
-                done
-              fi
+              ( cd "crates/$crate" && cargo publish )
+              # The index needs a moment before the next crate can resolve it.
+              for i in $(seq 30); do published "$crate" && break; sleep 10; done
             fi
             echo "::endgroup::"
+          done
+
+          echo "### crates.io" >> "$GITHUB_STEP_SUMMARY"
+          for crate in dozor-vers dozor-osv dozor-core dozor; do
+            if published "$crate"; then s="published $VERSION"; else s="not published"; fi
+            echo "- \`$crate\` — $s" >> "$GITHUB_STEP_SUMMARY"
           done
