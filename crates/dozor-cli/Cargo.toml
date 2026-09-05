@@ -1,0 +1,17 @@
+[package]
+name = "dozor-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Dozor — the watch at the mouth of the burrow. Compiles OSV + registry inventory into a NORA blocklist."
+
+[[bin]]
+name = "dozor"
+path = "src/main.rs"
+
+[dependencies]
+dozor-core = { path = "../dozor-core" }
+dozor-osv = { path = "../dozor-osv" }
+dozor-vers = { path = "../dozor-vers" }
+clap = { workspace = true }
+serde_json = { workspace = true }

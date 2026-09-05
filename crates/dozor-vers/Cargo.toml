@@ -1,0 +1,9 @@
+[package]
+name = "dozor-vers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Version-range matching for package ecosystems. Pure, no I/O."
+
+[dependencies]
+semver = { workspace = true }

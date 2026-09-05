@@ -1,0 +1,19 @@
+# Dozor policy — the only human-authored input. Lives in git, reviewed in a PR.
+version = 1
+
+[defaults]
+# Severity gate for CVE-style advisories: critical | high | moderate | low | off
+severity_threshold = "high"
+
+# MAL-* reports (malicious packages) carry no severity at all — 96.8% of the
+# npm OSV feed is these. They get their own switch: block | audit
+malicious = "block"
+
+# Every exception needs a reason and an expiry date. An expired exception
+# fails the build (exit 4) instead of quietly renewing itself.
+# [[exception]]
+# registry = "npm"
+# name = "lodash"
+# version = "4.17.20"
+# reason = "pinned by legacy build, tracked in JIRA-42"
+# expires = "2026-12-31"

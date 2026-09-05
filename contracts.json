@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "project": "dozor",
+  "contracts": [
+    {
+      "id": "D-1",
+      "state": "CLOSED",
+      "invariant": "Identical inputs produce byte-identical output",
+      "measure": "two consecutive builds, cmp of the files",
+      "enforced_at": "test + CI job determinism",
+      "evidence": "2026-09-05: both runs sha256:96d13b9d…, dozor verify green"
+    },
+    {
+      "id": "D-2",
+      "state": "CLOSED",
+      "invariant": "Output is loadable by a released NORA without any NORA change",
+      "measure": "run the NORA image with the produced blocklist, assert 403 on a blocked tarball",
+      "enforced_at": "integration test against the NORA container",
+      "evidence": "2026-09-05: nora:c950 loaded 197314 rules, 403 in 1.5 ms, reason string preserved"
+    },
+    {
+      "id": "D-3",
+      "state": "CLOSED",
+      "invariant": "An empty or unreadable input never overwrites an existing blocklist",
+      "measure": "missing feed -> exit 2, empty inventory -> exit 3, file untouched",
+      "enforced_at": "cli exit codes + test"
+    },
+    {
+      "id": "D-4",
+      "state": "CLOSED",
+      "invariant": "An undecidable version is reported, never treated as safe",
+      "measure": "Match::Unknown counted into x-dozor-unmatched",
+      "enforced_at": "dozor-vers type signature + tests"
+    },
+    {
+      "id": "D-5",
+      "state": "CLOSED",
+      "invariant": "An expired exception fails the build",
+      "measure": "policy with expires in the past -> exit 4",
+      "enforced_at": "policy::check_expiry + test"
+    },
+    {
+      "id": "D-6",
+      "state": "OPEN",
+      "invariant": "Peak RSS on the npm feed stays under 100 MB",
+      "measure": "dozor stats --feed-npm npm.zip, VmHWM",
+      "enforced_at": "not yet — CI budget gate pending",
+      "evidence": "2026-09-05: 173 MB. Retained index 24.9 MB; gap is transient build allocation."
+    },
+    {
+      "id": "D-7",
+      "state": "ACCEPTED",
+      "invariant": "Scan-on-publish (synchronous verdict on push) is out of scope",
+      "measure": "n/a",
+      "enforced_at": "documented in ARCHITECTURE.md",
+      "workaround": "post-hoc build plus version withdrawal"
+    }
+  ]
+}

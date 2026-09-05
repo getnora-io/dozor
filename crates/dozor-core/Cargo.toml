@@ -1,0 +1,14 @@
+[package]
+name = "dozor-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Policy, inventory and the deterministic derivation of a NORA blocklist."
+
+[dependencies]
+dozor-vers = { path = "../dozor-vers" }
+dozor-osv = { path = "../dozor-osv" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+toml = { workspace = true }

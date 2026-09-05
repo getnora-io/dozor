@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/dozor-vers",
+    "crates/dozor-osv",
+    "crates/dozor-core",
+    "crates/dozor-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/getnora-io/dozor"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+zip = { version = "8", default-features = false, features = ["deflate"] }
+semver = "1"
+sha2 = "0.10"
+toml = "1"
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
