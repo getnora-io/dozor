@@ -50,7 +50,9 @@ enum Cmd {
         /// Output blocklist path
         #[arg(short, long, default_value = "blocklist.json")]
         out: PathBuf,
-        /// Also block every wholly-malicious package in the feed, cached or not
+        /// Block every wholly-malicious package in the feed, cached or not. This is
+        /// the default; the flag stays for existing jobs. Only `proactive = false`
+        /// in the policy turns it off.
         #[arg(long)]
         proactive: bool,
         /// Pin "today" for reproducible builds (YYYY-MM-DD)
@@ -156,6 +158,9 @@ fn build(
 
     let (index, t_index) = load_index(&feed_npm)?;
 
+    // D-ADR-10: closed by default. The flag can only ask for more; blocking less is
+    // `proactive = false` in the policy, where it is reviewed.
+    let proactive = proactive || pol.proactive();
     let mut builder = Builder::default();
     if proactive {
         builder.add_proactive(&index, Ecosystem::Npm, &pol);
@@ -169,7 +174,10 @@ fn build(
                 Ecosystem::Npm,
                 &pol,
             )?;
-            if builder.stats.inventory_items == 0 && !proactive {
+            // D-3: an empty inventory is a signal, whatever else the build would hold.
+            // Writing the proactive rules alone would replace the per-version rules with
+            // nothing — a thinner blocklist nobody asked for.
+            if builder.stats.inventory_items == 0 {
                 eprintln!(
                     "dozor: inventory is empty — refusing to overwrite {}",
                     out.display()
@@ -180,7 +188,7 @@ fn build(
         }
         None => {
             if !proactive {
-                eprintln!("dozor: need --inventory or --proactive");
+                eprintln!("dozor: need --inventory, or the policy's proactive = true");
                 return Ok(exit::EMPTY_INVENTORY);
             }
             "none".to_string()

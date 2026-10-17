@@ -9,6 +9,20 @@ severity_threshold = "high"
 # npm OSV feed is these. They get their own switch: block | audit
 malicious = "block"
 
+# Closed by default: the two settings below block the most when left out.
+# Writing them blocks less, and the line is the record of who decided that.
+#
+# proactive = false
+#   only malicious packages the inventory holds; by default every wholly-malicious
+#   package in the feed is blocked before its first download.
+#
+# malicious_versions = "cached"
+#   only the malicious versions the inventory holds; by default every version a
+#   malicious report lists is blocked for a package you hold, so a release the
+#   registry has not downloaded yet (held back by min_release_age, say) is covered.
+#
+# A value or a key Dozor does not know fails the build (exit 5).
+
 # Every exception needs a reason and an expiry date. An expired exception
 # fails the build (exit 4) instead of quietly renewing itself.
 # [[exception]]

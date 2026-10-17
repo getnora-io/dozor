@@ -21,10 +21,11 @@
       "id": "D-3",
       "state": "CLOSED",
       "invariant": "An unreadable feed or an empty inventory never overwrites an existing blocklist",
-      "measure": "missing feed -> exit 2, empty inventory -> exit 3, previous file byte-identical afterwards",
+      "measure": "missing feed -> exit 2, empty inventory -> exit 3 even when proactive rules could be written, previous file byte-identical afterwards",
       "proof": [
         "crates/dozor/tests/cli.rs::missing_feed_exits_2_and_leaves_output_untouched",
-        "crates/dozor/tests/cli.rs::empty_inventory_exits_3_and_leaves_output_untouched"
+        "crates/dozor/tests/cli.rs::empty_inventory_exits_3_and_leaves_output_untouched",
+        "crates/dozor/tests/cli.rs::empty_inventory_exits_3_even_when_proactive"
       ]
     },
     {
@@ -50,9 +51,12 @@
     {
       "id": "D-8",
       "state": "CLOSED",
-      "invariant": "A wholly-malicious package collapses to one `version: \"*\"` rule, and a partly-malicious one does not",
-      "measure": "fixture with both shapes; assert the rule set",
-      "proof": ["crates/dozor/tests/cli.rs::policy_decides_what_the_fixture_expects"]
+      "invariant": "A wholly-malicious package collapses to one `version: \"*\"` rule, and a partly-malicious one does not. A report whose ranges cover every version is the whole package, with or without a version list beside them",
+      "measure": "fixture with both shapes; assert the rule set; an all-versions range with and without a list, and a list beside a bounded range",
+      "proof": [
+        "crates/dozor/tests/cli.rs::policy_decides_what_the_fixture_expects",
+        "crates/dozor-osv/src/lib.rs::an_all_versions_range_is_whole_with_or_without_a_list"
+      ]
     },
     {
       "id": "D-9",
@@ -62,6 +66,38 @@
       "proof": [
         "crates/dozor/tests/cli.rs::policy_decides_what_the_fixture_expects",
         "crates/dozor-osv/src/lib.rs::other_ecosystem_is_dropped"
+      ]
+    },
+    {
+      "id": "D-10",
+      "state": "CLOSED",
+      "invariant": "Closed by default: a policy that sets nothing blocks every wholly-malicious package in the feed and every version a malicious report lists for a package in the inventory, cached or not. Blocking less is a line in the policy; the CLI flag can only ask for more",
+      "measure": "held fixture (no malicious version has a copy): the default policy blocks the listed version and the whole packages, the lowered policy blocks none, --proactive adds the whole packages back, an exception still holds a listed version",
+      "proof": [
+        "crates/dozor/tests/cli.rs::listed_malicious_versions_are_blocked_without_a_copy",
+        "crates/dozor/tests/cli.rs::blocking_less_is_written_in_the_policy",
+        "crates/dozor/tests/cli.rs::an_exception_holds_a_listed_version",
+        "crates/dozor-core/src/policy.rs::an_empty_policy_blocks_as_much_as_the_feed_allows"
+      ]
+    },
+    {
+      "id": "D-11",
+      "state": "CLOSED",
+      "invariant": "A malicious report is never dropped for the length of its version list: the list is kept for a malicious report, and for any report without ranges",
+      "measure": "a malicious report with 147 versions, with and without ranges, keeps all of them; a non-malicious one with ranges falls back to the ranges and is counted as skipped",
+      "proof": [
+        "crates/dozor-osv/src/lib.rs::a_malicious_entry_keeps_every_listed_version",
+        "crates/dozor-osv/src/lib.rs::a_long_list_is_dropped_only_where_ranges_stand_in"
+      ]
+    },
+    {
+      "id": "D-12",
+      "state": "CLOSED",
+      "invariant": "A policy value or key Dozor does not know fails the build (exit 5), and the previous blocklist survives: a typo opens nothing",
+      "measure": "malicious = \"blcok\", an unknown malicious_versions, a misspelt key, an unknown key in an exception -> load error / exit 5, previous file byte-identical",
+      "proof": [
+        "crates/dozor/tests/cli.rs::an_unknown_policy_value_or_key_exits_5",
+        "crates/dozor-core/src/policy.rs::an_unknown_value_or_key_is_rejected_at_load"
       ]
     },
     {

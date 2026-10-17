@@ -281,3 +281,159 @@ fn inventory_from_lockfile_feeds_build() {
         .iter()
         .any(|r| r["name"] == "evil-pkg"));
 }
+
+fn build_held(out: &Path, policy: &str, extra: &[&str]) -> std::process::Output {
+    let mut cmd = dozor();
+    cmd.arg("build")
+        .arg("--feed-npm")
+        .arg(testdata("held-npm.zip"))
+        .arg("--inventory")
+        .arg(testdata("inventory-held.jsonl"))
+        .arg("--policy")
+        .arg(testdata(policy))
+        .arg("--today")
+        .arg("2026-10-17")
+        .arg("-o")
+        .arg(out);
+    cmd.args(extra);
+    cmd.output().expect("run dozor")
+}
+
+fn keys_of(doc: &serde_json::Value) -> Vec<(String, String)> {
+    doc["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| {
+            (
+                r["name"].as_str().unwrap().to_string(),
+                r["version"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+/// D-10: closed by default. `held-npm.zip` holds MAL-9001 (`legit-lib` 1.0.1 only — a
+/// hijacked release), MAL-9002 (`leg1t-lib`, malicious as a whole), MAL-9003 (`spam-pkg`,
+/// 70 listed versions, no ranges) and MAL-9004 (`legit-1ib`, a version listed beside an
+/// all-versions range). The inventory holds `legit-lib` 1.0.0 and `spam-pkg` 1.0.0: none of
+/// the malicious versions has a copy in the registry.
+#[test]
+fn listed_malicious_versions_are_blocked_without_a_copy() {
+    let out = tmp("held-default.json");
+    let res = build_held(&out, "policy.toml", &[]);
+    assert!(
+        res.status.success(),
+        "{}",
+        String::from_utf8_lossy(&res.stderr)
+    );
+    let doc = rules_of(&out);
+    let keys = keys_of(&doc);
+    assert!(keys.contains(&("legit-lib".into(), "1.0.1".into())));
+    assert!(!keys.contains(&("legit-lib".into(), "1.0.0".into())));
+    assert!(keys.contains(&("leg1t-lib".into(), "*".into())));
+    assert!(keys.contains(&("legit-1ib".into(), "*".into())));
+    assert!(!keys.iter().any(|(n, v)| n == "legit-1ib" && v != "*"));
+    let spam: Vec<_> = keys.iter().filter(|(n, _)| n == "spam-pkg").collect();
+    assert_eq!(spam.len(), 70);
+    assert!(!keys.contains(&("spam-pkg".into(), "1.0.0".into())));
+    assert_eq!(doc["x-dozor-derivation"]["mode"], "proactive");
+}
+
+/// D-10: blocking less is a line in the policy, and the CLI flag can only ask for more.
+#[test]
+fn blocking_less_is_written_in_the_policy() {
+    let out = tmp("held-lowered.json");
+    let res = build_held(&out, "policy-lowered.toml", &[]);
+    assert!(
+        res.status.success(),
+        "{}",
+        String::from_utf8_lossy(&res.stderr)
+    );
+    let doc = rules_of(&out);
+    assert!(keys_of(&doc).is_empty(), "{:?}", keys_of(&doc));
+    assert_eq!(doc["x-dozor-derivation"]["mode"], "inventory");
+
+    let out = tmp("held-lowered-flag.json");
+    let res = build_held(&out, "policy-lowered.toml", &["--proactive"]);
+    assert!(res.status.success());
+    let keys = keys_of(&rules_of(&out));
+    assert_eq!(
+        keys,
+        vec![
+            ("leg1t-lib".to_string(), "*".to_string()),
+            ("legit-1ib".to_string(), "*".to_string())
+        ]
+    );
+}
+
+/// D-10: a listed version is still subject to the policy's exceptions.
+#[test]
+fn an_exception_holds_a_listed_version() {
+    let out = tmp("held-exception.json");
+    let res = build_held(&out, "policy-held-exception.toml", &[]);
+    assert!(
+        res.status.success(),
+        "{}",
+        String::from_utf8_lossy(&res.stderr)
+    );
+    let keys = keys_of(&rules_of(&out));
+    assert!(!keys.contains(&("legit-lib".into(), "1.0.1".into())));
+    assert!(keys.contains(&("leg1t-lib".into(), "*".into())));
+}
+
+/// D-3: an empty inventory stops the build even when proactive rules could be written.
+#[test]
+fn empty_inventory_exits_3_even_when_proactive() {
+    let empty = tmp("empty-proactive.jsonl");
+    std::fs::write(&empty, b"").unwrap();
+    let out = tmp("guard-proactive.json");
+    std::fs::write(&out, b"PREVIOUS CONTENT").unwrap();
+    let res = dozor()
+        .arg("build")
+        .arg("--feed-npm")
+        .arg(testdata("held-npm.zip"))
+        .arg("--inventory")
+        .arg(&empty)
+        .arg("--policy")
+        .arg(testdata("policy.toml"))
+        .arg("--proactive")
+        .arg("-o")
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert_eq!(res.status.code(), Some(3));
+    assert_eq!(std::fs::read(&out).unwrap(), b"PREVIOUS CONTENT");
+}
+
+/// D-12: a value or a key the policy does not know fails the build; the old file survives.
+#[test]
+fn an_unknown_policy_value_or_key_exits_5() {
+    for (i, bad) in [
+        "[defaults]\nmalicious = \"blcok\"\n",
+        "[defaults]\nmalicious_versions = \"all\"\n",
+        "[defaults]\nproactiv = false\n",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let policy = tmp(&format!("bad-policy-{i}.toml"));
+        std::fs::write(&policy, format!("version = 1\n{bad}")).unwrap();
+        let out = tmp(&format!("bad-policy-{i}.json"));
+        std::fs::write(&out, b"PREVIOUS CONTENT").unwrap();
+        let res = dozor()
+            .arg("build")
+            .arg("--feed-npm")
+            .arg(testdata("held-npm.zip"))
+            .arg("--inventory")
+            .arg(testdata("inventory-held.jsonl"))
+            .arg("--policy")
+            .arg(&policy)
+            .arg("-o")
+            .arg(&out)
+            .output()
+            .unwrap();
+        assert_eq!(res.status.code(), Some(5), "{bad}");
+        assert_eq!(std::fs::read(&out).unwrap(), b"PREVIOUS CONTENT", "{bad}");
+    }
+}

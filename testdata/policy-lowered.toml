@@ -1,0 +1,6 @@
+version = 1
+
+# Blocks less than the defaults, on purpose: what the tests of D-10 lower.
+[defaults]
+proactive = false
+malicious_versions = "cached"

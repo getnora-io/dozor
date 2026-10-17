@@ -271,9 +271,12 @@ impl Index {
             .map(move |v| self.arena.get(*v))
     }
 
-    /// True when every bound says "the whole package, forever".
+    /// True when every bound says "the whole package, forever". An explicit version list
+    /// beside such a range only enumerates the versions known when the report was written:
+    /// the range covers them and every later one (9,100 MAL-* entries in the npm feed of
+    /// 2026-10-17 have both, and were not blocked proactively while the list counted).
     pub fn is_whole_package(&self, e: &Entry) -> bool {
-        e.versions_len == 0 && e.bounds_len > 0 && self.bounds_of(e).all(|b| b.is_whole_package())
+        e.bounds_len > 0 && self.bounds_of(e).all(|b| b.is_whole_package())
     }
 
     pub fn id_str(&self, e: &Entry) -> &str {
@@ -333,7 +336,9 @@ struct RawEvent {
 }
 
 /// Explicit affected-version lists above this length are dropped in favour of
-/// the ranges. Counted in [`Index::skipped`], never silent.
+/// the ranges. Counted in [`Index::skipped`], never silent. A list is kept
+/// whatever its length when it is all the entry has (no ranges) or when the
+/// entry is a malicious-package report: dropping it there would block nothing.
 const MAX_EXPLICIT_VERSIONS: usize = 64;
 
 /// Stream one OSV export zip into `index`, keeping only `eco`.
@@ -421,7 +426,7 @@ fn fold(raw: RawAdvisory, want: Ecosystem, index: &mut Index) {
         let bounds_len = index.bounds.len() as u32 - bounds_start;
 
         let versions_start = index.versions.len() as u32;
-        if aff.versions.len() <= MAX_EXPLICIT_VERSIONS {
+        if aff.versions.len() <= MAX_EXPLICIT_VERSIONS || malicious || bounds_len == 0 {
             for v in &aff.versions {
                 let s = index.arena.push(v);
                 index.versions.push(s);
@@ -556,6 +561,66 @@ mod tests {
         assert_eq!(idx.lookup("aaa").len(), 2);
         assert_eq!(idx.lookup("mmm").len(), 1);
         assert!(idx.lookup("nope").is_empty());
+    }
+
+    fn long_list(id: &str, n: usize, ranges: bool) -> String {
+        let versions: Vec<String> = (0..n).map(|i| format!("\"1.0.{i}\"")).collect();
+        let ranges = if ranges {
+            r#","ranges":[{"events":[{"introduced":"1.0.0"},{"fixed":"2.0.0"}]}]"#
+        } else {
+            ""
+        };
+        format!(
+            r#"{{"id":"{id}","affected":[{{"package":{{"name":"pkg","ecosystem":"npm"}},"versions":[{}]{ranges}}}]}}"#,
+            versions.join(",")
+        )
+    }
+
+    #[test]
+    fn a_malicious_entry_keeps_every_listed_version() {
+        // Six MAL-* entries in the npm feed of 2026-10-17 list more than 64 versions and no
+        // ranges; dropping their lists dropped the entries, and the packages were not blocked.
+        for ranges in [false, true] {
+            let idx = index_of(&long_list("MAL-2026-10723", 147, ranges), Ecosystem::Npm);
+            let e = &idx.lookup("pkg")[0];
+            assert_eq!(idx.versions_of(e).count(), 147, "ranges: {ranges}");
+            assert_eq!(idx.skipped, 0);
+        }
+    }
+
+    #[test]
+    fn a_long_list_is_dropped_only_where_ranges_stand_in() {
+        let idx = index_of(&long_list("GHSA-long", 100, true), Ecosystem::Npm);
+        let e = &idx.lookup("pkg")[0];
+        assert_eq!(idx.versions_of(e).count(), 0);
+        assert_eq!(idx.bounds_of(e).count(), 1);
+        assert_eq!(idx.skipped, 1);
+
+        let idx = index_of(&long_list("GHSA-long", 100, false), Ecosystem::Npm);
+        let e = &idx.lookup("pkg")[0];
+        assert_eq!(idx.versions_of(e).count(), 100);
+        assert_eq!(idx.skipped, 0);
+    }
+
+    #[test]
+    fn an_all_versions_range_is_whole_with_or_without_a_list() {
+        for versions in ["", r#""versions":["0.0.1","0.0.2"],"#] {
+            let idx = index_of(
+                &format!(
+                    r#"{{"id":"MAL-2022-1154","affected":[{{"package":{{"name":"pkg","ecosystem":"npm"}},{versions}
+                        "ranges":[{{"events":[{{"introduced":"0"}}]}}]}}]}}"#
+                ),
+                Ecosystem::Npm,
+            );
+            assert!(idx.is_whole_package(&idx.lookup("pkg")[0]), "{versions}");
+        }
+        // A list alone, or a range with an end, is not the whole package.
+        let idx = index_of(
+            r#"{"id":"MAL-x","affected":[{"package":{"name":"pkg","ecosystem":"npm"},
+                "versions":["0.0.1"],"ranges":[{"events":[{"introduced":"0"},{"fixed":"0.0.2"}]}]}]}"#,
+            Ecosystem::Npm,
+        );
+        assert!(!idx.is_whole_package(&idx.lookup("pkg")[0]));
     }
 
     #[test]
