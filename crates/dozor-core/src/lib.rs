@@ -101,6 +101,8 @@ pub struct Builder {
     /// Packages already covered by a `version: "*"` rule — per-version rules
     /// for these are redundant and must not be emitted.
     whole: std::collections::BTreeSet<(String, String)>,
+    /// (package, advisory id) pairs whose listed versions are already recorded.
+    listed: std::collections::BTreeSet<(String, String)>,
     unknown_samples: Vec<String>,
     pub stats: Stats,
 }
@@ -197,6 +199,25 @@ impl Builder {
                     }
                     self.record(registry, &item.name, "*", idx, e);
                     continue;
+                }
+
+                // D-ADR-10: a malicious report lists the versions it knows. For a package the
+                // registry holds, each of them is blocked whether the registry has a copy or
+                // not: a release it has not downloaded yet (held by an age rule, or not asked
+                // for so far) must not wait for a copy to be blocked.
+                if e.kind() == Kind::Malicious
+                    && pol.blocks_listed_versions()
+                    && self
+                        .listed
+                        .insert((item.name.clone(), idx.id_str(e).to_string()))
+                {
+                    for v in idx.versions_of(e) {
+                        if pol.excepted(registry, &item.name, v) {
+                            self.stats.excepted += 1;
+                            continue;
+                        }
+                        self.record(registry, &item.name, v, idx, e);
+                    }
                 }
 
                 match version_verdict(idx, eco, &item.version, e) {

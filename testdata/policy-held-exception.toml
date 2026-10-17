@@ -1,0 +1,8 @@
+version = 1
+
+[[exception]]
+registry = "npm"
+name = "legit-lib"
+version = "1.0.1"
+reason = "a listed version can still be excepted, with a reason and a date"
+expires = "2099-12-31"

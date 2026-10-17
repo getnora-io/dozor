@@ -80,6 +80,21 @@ The same policy drives what NORA blocks and (from 0.2) an OpenVEX document that
 silences Trivy/Grype on the same accepted exceptions. Today "what we block" and
 "what we accept" live in two systems and drift apart.
 
+### D-ADR-10: Closed by default
+
+A policy that sets nothing blocks as much as the feed allows: every wholly-malicious
+package in the feed, cached or not; for a package in the inventory, every version a
+malicious report lists, cached or not; advisories from `high` up for what the inventory
+holds. Each setting that blocks less — `malicious = "audit"`, `proactive = false`,
+`malicious_versions = "cached"`, a lower threshold, an exception — is a line someone
+wrote in the policy and a reviewer approved. A value or a key the policy does not know
+fails the build with exit 5: a typo must not open anything. The `--proactive` flag stays
+for existing jobs and can only ask for more.
+
+A listed version matters because a registry may never hold it: a release NORA refuses
+by `min_release_age` is never downloaded, so an inventory of cached versions would never
+name it, and once old enough it would be served with no rule against it.
+
 ## Malicious packages are the main event
 
 The npm OSV feed is **228,684 advisories, of which 221,365 are `MAL-*`** —
@@ -90,7 +105,10 @@ severity threshold would discard 96.8% of the payload. Hence a separate
 Of those, **197,314 are "the whole package, forever"** (`introduced: 0`, no fix,
 no version list). Those collapse into a single `version: "*"` rule per package —
 and that rule is preventive: the package is refused before its first download,
-whether or not any version was ever cached.
+whether or not any version was ever cached. On the feed of 2026-10-17, 9,100 more
+reports have the same all-versions range and also list the versions known when they
+were written; the range covers those and every later one, so they are whole-package
+rules too (0.1.0 read them as partial and did not block them proactively).
 
 ## Crates
 
@@ -119,8 +137,12 @@ deterministic and diffs cleanly.
 - **Peak RSS 173 MB vs 24.9 MB retained** (contract D-6, OPEN) — the gap is transient build allocation
   and allocator behaviour, not data. Reserving capacity up front and streaming the
   output writer are the open items.
-- **Proactive mode costs NORA latency** — 197,314 rules make NORA's linear
-  blocklist scan cost **+3.8 ms per download** (5.4 ms → 9.3 ms, measured on a
-  cached tarball). Nearly every Dozor rule is an exact name, so bucketing exact
-  names in a hash map upstream removes it. Tracked as a NORA issue.
+- **Proactive mode costs NORA memory, not latency** — NORA indexes exact-name rules
+  since nora#953, so download latency with the 206,466 rules of the 2026-10-17 feed is
+  the same as with an empty blocklist (1000 cached downloads, two runs each). The file
+  costs NORA about 75 MB of RSS (16 → 91 MB, peak 172 MB) and 0.8 s of startup. A site
+  that cannot pay it writes `proactive = false` in its policy.
+- **A full build peaks well above `dozor stats`** — `dozor build` with the full npm feed
+  peaked at 769 MB of RSS before this change and 803 MB after it (2026-10-17); contract
+  D-6 measures `dozor stats` (142 MB) and does not see the build.
 - **npm only** in 0.1. Every other ecosystem answers `Unknown` and is reported.

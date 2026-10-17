@@ -96,7 +96,6 @@ dozor build \
   --feed-npm snapshots/npm.zip \
   --inventory inventory.jsonl \
   --policy policy.toml \
-  --proactive \
   -o blocklist.json
 
 # 4. hand it to NORA — no NORA changes required, any released version
@@ -130,12 +129,21 @@ dozor stats      index size and peak RSS, measured
 
 The only human-authored input. It lives in git.
 
+**Closed by default.** A policy of just `version = 1` blocks as much as the feed allows:
+every wholly-malicious package, cached or not; every version a malicious report lists for
+a package you hold, cached or not; advisories from `high` up. Every setting that blocks
+less is a line in this file, reviewed like any other change. A value or a key Dozor does
+not know fails the build (exit 5) — a typo opens nothing.
+
 ```toml
 version = 1
 
 [defaults]
 severity_threshold = "high"   # critical | high | moderate | low | off
 malicious = "block"           # MAL-* reports carry no severity — own switch
+# The defaults below block the most. Writing them down blocks less, on purpose:
+# proactive = false             # only malicious packages the inventory holds
+# malicious_versions = "cached" # only the malicious versions the inventory holds
 
 [[exception]]
 registry = "npm"
@@ -152,6 +160,7 @@ expires = "2026-12-31"        # required. expired exception = exit 4, not silent
 - **Not a service.** No port, no daemon, no controller. It cannot be on the download path, by design.
 - **Not a database.** Nothing persists between runs but the files you keep on purpose.
 - **Not a replacement for NORA's curation.** It writes curation input; NORA decides and enforces.
+- **Not a hold on new releases.** It blocks what the feed reports. A malicious release no report names yet is not covered — hold new releases with NORA's digest quarantine.
 
 ## Status
 

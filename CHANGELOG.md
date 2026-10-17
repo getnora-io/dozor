@@ -6,6 +6,34 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Closed by default** (D-ADR-10). A policy that sets nothing blocks as much as the feed
+  allows; every setting that blocks less is a line in the policy:
+  - every wholly-malicious package is blocked unless the policy says `proactive = false`;
+    `--proactive` stays for existing jobs and can only ask for more;
+  - for a package in the inventory, every version a malicious report lists is blocked,
+    cached or not; `malicious_versions = "cached"` limits it to the inventory's versions.
+    A release NORA holds back with `min_release_age` is never downloaded, so it was never
+    in the inventory and never blocked.
+- A policy value or key Dozor does not know fails the build with exit 5. `malicious`
+  takes `block` or `audit`: any other value used to turn malicious blocking off. A
+  misspelt key used to be ignored.
+- An empty inventory stops the build with exit 3 even when proactive rules could be
+  written; the previous file stays. It used to be replaced with the proactive rules alone.
+
+### Fixed
+- A malicious report whose ranges cover every version is a whole-package rule even when
+  it also lists versions: 9,100 such reports in the npm feed of 2026-10-17 were not
+  blocked proactively.
+- A malicious report listing more than 64 versions keeps them, as does any report without
+  ranges: six reports in the same feed were dropped and blocked nothing.
+
+### Notes
+- Measured on the npm feed of 2026-10-17: the default build holds 206,466 rules where
+  0.1.0 with `--proactive` held 197,393, and every 0.1.0 rule is still there. Index
+  25.2 MB, `dozor stats` peak RSS 142 MB, as before. NORA (1.4.0 release candidate) with
+  that file: startup 0.9 s, RSS 91 MB (peak 172 MB), download latency unchanged.
+
 ## [0.1.0] — 2026-09-05
 
 First release. npm only.
