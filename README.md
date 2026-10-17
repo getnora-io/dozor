@@ -152,6 +152,7 @@ expires = "2026-12-31"        # required. expired exception = exit 4, not silent
 - **Not a service.** No port, no daemon, no controller. It cannot be on the download path, by design.
 - **Not a database.** Nothing persists between runs but the files you keep on purpose.
 - **Not a replacement for NORA's curation.** It writes curation input; NORA decides and enforces.
+- **Not a hold on new releases.** It blocks what the feed reports. Apart from packages that are malicious as a whole (`--proactive`), it writes a rule only for a version in the inventory, so a release NORA has not downloaded is not covered. Hold new releases with NORA's digest quarantine in `enforce` mode: it keeps them on disk, where `dozor inventory` sees them ([details](https://getnora.dev/integrations/dozor/)).
 
 ## Status
 
